@@ -1,0 +1,255 @@
+---
+title: "Tugas Praktikum 1 MPDW"
+author: "Kaylila Kireinahana"
+date: "`r Sys.Date()`"
+output: 
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+Library
+```{r}
+library("forecast")
+library("graphics")
+library("TTR")
+library("TSA")
+library(rio)
+
+```
+
+
+```{r}
+data_mpdw <- import("https://raw.githubusercontent.com/reiflection/MPDW/main/Data/Cerial%20Prices.csv")
+periode <- rep(1:360)
+data_mpdw <- cbind(data_mpdw, periode)
+```
+
+Eksplorasi Data
+
+```{r}
+View(data_mpdw)
+str(data_mpdw)
+dim(data_mpdw)
+summary(data_mpdw$Price_rice_ton)
+rice.all.ts <- ts(data_mpdw$Price_rice_ton)
+ts.plot(rice.all.ts, xlab="Time Period ", ylab="Harga Beras", 
+        main = "Time Series Plot All Time")
+points(rice.all.ts)
+```
+Pada eksplorasi data untuk seluruh 40 tahun, terdapat satu puncak yang sangat tinggi pada tahun 2008. Sebelum dan sesudah puncak tersebut berada pada range harga yang cukup berbeda, sehingga data yang diambil hanya 10 tahun terakhir yaitu Januari 2012 - Januari 2022.
+
+```{r}
+rice.ts <- ts(data_mpdw$Price_rice_ton[240:360])
+```
+
+Plot Deret Waktu
+```{r}
+ts.plot(rice.ts, xlab="Time Period ", ylab="Reading", 
+        main = "Time Series Plot")
+points(rice.ts)
+```
+Grafik deret waktu menunjukkan pola yang tidak konstan atau tren.
+
+Pembagian data latih dan uji sebanyak 80% dan 20%
+```{r}
+rma_train <- data_mpdw[240:336,]
+rma_test <- data_mpdw[336:360,]
+rma_train.ts <- ts(rma_train$Price_rice_ton)
+rma_test.ts <- ts(rma_test$Price_rice_ton)
+```
+
+Eksplorasi data latih dan uji
+```{r}
+#eksplorasi keseluruhan data
+plot(rice.ts, col="yellow",main="Plot semua data")
+points(rice.ts)
+
+#eksplorasi data latih
+plot(rma_train.ts, col="blue",main="Plot data latih")
+points(rma_train.ts)
+
+#eksplorasi data uji
+plot(rma_test.ts, col="red",main="Plot data uji")
+points(rma_test.ts)
+```
+
+Eksplorasi Data Gabungan
+```{r}
+library(ggplot2)
+ggplot() + 
+  geom_line(data = rma_train, aes(x = periode, y = Price_rice_ton, col = "Data Latih")) +
+  geom_line(data = rma_test, aes(x =periode, y = Price_rice_ton, col = "Data Uji")) +
+  labs(x = "Periode Waktu", y = "Harga Beras", color = "Legend") +
+  scale_colour_manual(name="Keterangan:", breaks = c("Data Latih", "Data Uji"),
+                      values = c("blue", "red")) + 
+  theme_bw() + theme(legend.position = "bottom",
+                     plot.caption = element_text(hjust=0.5, size=12))
+```
+
+## Double Moving Average
+```{r}
+rice.sma.dma<-SMA(rma_train.ts, n=11)
+rdma <- SMA(rice.sma.dma, n = 11)
+At <- 2*rice.sma.dma - rdma
+Bt <- 2/(11-1)*(rice.sma.dma - rdma)
+rice.dma<- At+Bt
+rice.ramal.dma<- c(NA, rice.dma)
+
+t = 1:25
+f = c()
+
+for (i in t) {
+  f[i] = At[length(At)] + Bt[length(Bt)]*(i)
+}
+
+data.gab2 <- cbind(aktual = c(rma_train.ts,rep(NA,25)), pemulusan1 = c(rice.sma,rep(NA,25)),pemulusan2 = c(rice.dma, rep(NA,25)),At = c(At, rep(NA,25)), Bt = c(Bt,rep(NA,25)),ramalan = c(rice.ramal.dma, f[-1]))
+data.gab2
+```
+
+Visualisasi hasil pemulusan DMA untuk 80% data
+```{r}
+ts.plot(rice.ts, xlab="Periode", ylab="Harga Beras", main= "DMA N=11 Harga Beras")
+points(rice.ts)
+lines(data.gab2[,3],col="green",lwd=2)
+lines(data.gab2[,6],col="red",lwd=2)
+legend("topleft",c("data aktual","data pemulusan","data peramalan"), lty=8, col=c("black","green","red"), cex=0.8)
+```
+
+```{r}
+#Menghitung nilai keakuratan data latih
+rdma_train.error = rma_train.ts-rice.ramal.dma[1:length(rma_train.ts)]
+rdma_train.sse = sum(rdma_train.error[22:length(rma_train.ts)]^2)
+rdma_train.mse = mean(rdma_train.error[22:length(rma_train.ts)]^2)
+rdma_train.mape = mean(abs((rdma_train.error[22:length(rma_train.ts)]/rma_train.ts[22:length(rma_train.ts)])*100))
+
+akurasi_train.dma <- matrix(c(rdma_train.sse, rdma_train.mse, rdma_train.mape))
+row.names(akurasi_train.dma)<- c("SSE", "MSE", "MAPE")
+colnames(akurasi_train.dma) <- c("Akurasi m = 11")
+akurasi_train.dma
+```
+nilai MAPE untuk pengujian data latih dibawah 10% yang menandakan sudah cukup baik.
+
+```{r}
+#Menghitung nilai keakuratan data latih
+rdma_test.error = rma_test.ts-data.gab2[98:122,6]
+rdma_test.sse = sum(rdma_test.error^2)
+rdma_test.mse = mean(rdma_test.error^2)
+rdma_test.mape = mean(abs((rdma_test.error/rma_test.ts*100)))
+
+akurasi_test.dma <- matrix(c(rdma_test.sse, rdma_test.mse, rdma_test.mape))
+row.names(akurasi_test.dma)<- c("SSE", "MSE", "MAPE")
+colnames(akurasi_test.dma) <- c("Akurasi m = 10")
+akurasi_test.dma
+```
+
+Perhitungan akurasi menggunakan data latih menghasilkan nilai MAPE yang lebih dari 10%..
+
+
+## Double Exponetial Smoothing
+Membagi data untuk DES
+```{r}
+res_train<-data_mpdw[240:336,]
+res_test<-data_mpdw[336:360,]
+res_train.ts <- ts(res_train$Price_rice_ton)
+res_test.ts <- ts(res_test$Price_rice_ton)
+```
+
+```{r}
+#Lamda=0.2 dan gamma=0.2
+des.1<- HoltWinters(res_train.ts, gamma = FALSE, beta = 0.2, alpha = 0.2)
+plot(des.1)
+
+#ramalan
+ramalandes1<- forecast(des.1, h=25)
+ramalandes1
+
+#Lamda=0.6 dan gamma=0.3
+des.2<- HoltWinters(res_train.ts, gamma = FALSE, beta = 0.3, alpha = 0.6)
+plot(des.2)
+
+#ramalan
+ramalandes2<- forecast(des.2, h=25)
+ramalandes2
+```
+
+Pembandingan data latih dan uji melalui visualisasi
+```{r}
+plot(rice.ts)
+lines(des.1$fitted[,1], lty=2, col="blue")
+lines(ramalandes1$mean, col="red")
+```
+
+```{r}
+#Lamda dan gamma optimum
+des.opt<- HoltWinters(res_train.ts, gamma = FALSE)
+des.opt
+plot(des.opt)
+
+#ramalan
+ramalandesopt<- forecast(des.opt, h=25)
+ramalandesopt
+```
+
+```{r}
+#Akurasi Data Training
+ssedes.train1<-des.1$SSE
+msedes.train1<-ssedes.train1/length(res_train.ts)
+sisaandes1<-ramalandes1$residuals
+head(sisaandes1)
+
+mapedes.train1 <- sum(abs(sisaandes1[3:length(res_train.ts)]/res_train.ts[3:length(res_train.ts)])
+                      *100)/length(res_train.ts)
+
+akurasides.1 <- matrix(c(ssedes.train1,msedes.train1,mapedes.train1))
+row.names(akurasides.1)<- c("SSE", "MSE", "MAPE")
+colnames(akurasides.1) <- c("Akurasi lamda=0.2 dan gamma=0.2")
+akurasides.1
+
+ssedes.train2<-des.2$SSE
+msedes.train2<-ssedes.train2/length(res_train.ts)
+sisaandes2<-ramalandes2$residuals
+head(sisaandes2)
+
+mapedes.train2 <- sum(abs(sisaandes2[3:length(res_train.ts)]/res_train.ts[3:length(res_train.ts)])
+                      *100)/length(res_train.ts)
+
+akurasides.2 <- matrix(c(ssedes.train2,msedes.train2,mapedes.train2))
+row.names(akurasides.2)<- c("SSE", "MSE", "MAPE")
+colnames(akurasides.2) <- c("Akurasi lamda=0.6 dan gamma=0.3")
+akurasides.2
+```
+Nilai MAPE dengan lamda = 0.6 dan gamma = 0.3 lebih kecil dibandingkan nilai MAPE pada lamda = 0.2 dan gamma = 0.2 sehingga akurasi tersebut lebih baik.
+
+```{r}
+#Akurasi Data Testing
+selisihdes1<-ramalandes1$mean-res_test$Price_rice_ton
+selisihdes1
+
+SSEtestingdes1<-sum(selisihdes1^2)
+MSEtestingdes1<-SSEtestingdes1/length(res_test$Price_rice_ton)
+MAPEtestingdes1<-sum(abs(selisihdes1/res_test$Price_rice_ton)*100)/length(res_test$Price_rice_ton)
+
+selisihdes2<-ramalandes2$mean-res_test$Price_rice_ton
+selisihdes2
+
+SSEtestingdes2<-sum(selisihdes2^2)
+MSEtestingdes2<-SSEtestingdes2/length(res_test$Price_rice_ton)
+MAPEtestingdes2<-sum(abs(selisihdes2/res_test$Price_rice_ton)*100)/length(res_test$Price_rice_ton)
+
+selisihdesopt<-ramalandesopt$mean-res_test$Price_rice_ton
+selisihdesopt
+
+SSEtestingdesopt<-sum(selisihdesopt^2)
+MSEtestingdesopt<-SSEtestingdesopt/length(res_test$Price_rice_ton)
+MAPEtestingdesopt<-sum(abs(selisihdesopt/res_test$Price_rice_ton)*100)/length(res_test$Price_rice_ton)
+
+akurasitestingdes <-
+  matrix(c(SSEtestingdes1,MSEtestingdes1,MAPEtestingdes1,SSEtestingdes2,MSEtestingdes2,
+           MAPEtestingdes2,SSEtestingdesopt,MSEtestingdesopt,MAPEtestingdesopt),
+         nrow=3,ncol=3)
+row.names(akurasitestingdes)<- c("SSE", "MSE", "MAPE")
+colnames(akurasitestingdes) <- c("des ske1","des ske2","des opt")
+akurasitestingdes
+```
+Metode DES dengan parameter optimum menghasilkan nilai MAPE yang paling kecil sehingga akurasi tersebut lebih baik dibandingkan yang lainnya.

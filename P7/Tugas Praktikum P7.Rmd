@@ -1,0 +1,219 @@
+---
+title: "Pendugaan Parameter, Diagnostik Model, dan Peramalan"
+author: "Kaylila Kireinahana"
+date: "2023-10-15"
+output: html_document
+---
+
+# Packages
+
+```{r}
+library(ggplot2)
+library(tsibble)
+library(tseries)
+library(MASS)
+library(forecast)
+library(TSA)
+library(TTR)
+library(aTSA)
+library(graphics)
+```
+
+# Penyiapan Data
+
+```{r cars}
+summary(cars)
+```
+
+# Eksplorasi Data
+
+```{r}
+data_mpdw <- rio::import("https://raw.githubusercontent.com/reiflection/MPDW/main/Data/Cerial%20Prices.csv")
+rice <- ts(data_mpdw$Price_rice_ton)
+rice.train <- ts(rice[1:288])
+rice.test <- ts(rice[289:360])
+```
+
+## Plot Data Time Series
+
+```{r}
+par(mfrow=c(2,2))
+plot.ts(rice, lty=1, col="red", xlab="waktu", ylab="Kurs", main="Plot Data Rice")
+plot.ts(rice.train, lty=1, col="blue", xlab="waktu", ylab="Kurs", main="Plot Rice Train")
+plot.ts(rice.test, lty=1, col="green", xlab="waktu", ylab="Kurs", main="Plot Rice Test")
+```
+
+Terlihat dari ketiga plot tersebut, bahwa data tidak memiliki pola yang konstan serta tidak bergerak pada nilai tengah tertentu. Hal ini menunjukkan bahwa data tidak stasioner.
+
+## Uji Kestasioneran
+
+### Uji ACF
+
+```{r}
+acf(rice.train)
+```
+
+Berdasarkan plot ACF tersebut, terlihat bahwa nilai ACF terhadap lag menurun secara perlahan. Hal ini menunjukkan bahwa data tidak stasioner dalam rataan.
+
+### Uji ADF
+
+```{r}
+tseries::adf.test(rice.train)
+```
+
+$H_0$: Data tidak stasioner dalam rataan
+
+$H_1$: Data stasioner dalam rataan
+
+Berdasarkan uji tersebut, $$p-value > \alpha$$ ( $$0.5036 > 0.05$$ ) yang berarti tak tolak H0 atau data tidak stasioner dalam rataan.
+
+### Plot Box-Cox
+
+```{r}
+rice.index <- seq(1:288)
+rice.bc = boxcox(rice.train ~ rice.index, lambda = seq(-2,2,by=0.1))
+#Nilai Rounded Lambda
+rice.lambda <- rice.bc$x[which.max(rice.bc$y)]
+rice.lambda
+#SK
+rice.bc$x[rice.bc$y > max(rice.bc$y) - 1/2 * qchisq(.95,1)]
+```
+
+Dari hasil diatas, terlihat bahwa lambda optimum adalah $-0.1010101$ dengan batas bawah $-0.38383838$ dan batas atas $0.14141414$. Karena selang tidak memuat nilai satu, maka data tidak stasioner dalam ragam.
+
+## Penanganan Ketidakstasioneran Data
+
+```{r}
+rice.train.diff <- diff(rice.train, differences = 1) 
+plot.ts(rice.train.diff, lty=1, xlab="waktu", ylab="Data Difference 1 Rice", main="Plot Difference Rice")
+```
+
+Berdasarkan plot diatas, data setelah mengalami *differencing* menunjukkan pola yang stasioner namun terdapat satu lonjakan. Untuk memastikan lebih lanjut, dilakukan uji formal.
+
+### Plot ACF
+
+```{r}
+acf(rice.train.diff)
+```
+
+Berdasarkan plot diatas, ACF cenderung *cuts off* di lag pertama.
+
+### Uji ADF
+
+```{r}
+tseries::adf.test(rice.train.diff)
+```
+
+$H_0$: Data tidak stasioner dalam rataan
+
+$H_1$: Data stasioner dalam rataan
+
+Berdasarkan uji tersebut, $$p-value (0.01) < \alpha (0.05) $$ yang berarti tolak H0. Hal ini menandakan bahwa data *differencing* sudah stasioner dalam rataan.
+
+### Plot PACF
+
+```{r}
+pacf(rice.train.diff)
+```
+
+Berdasarkan plot tersebut, PACF cenderung *cuts off* di lag kedua.
+
+### Plot EACF
+
+```{r}
+eacf(rice.train.diff)
+```
+
+Berdasarkan plot EACF, beberapa model yang terbentuk adalah ARIMA(0,1,1), ARIMA(0,1,2), ARIMA(1,1,2), dan ARIMA(2,1,0).
+
+# Pendugaan Parameter Model Tentatif
+
+## ARIMA(0,1,1)
+
+```{r}
+rice.model1 = Arima(rice.train.diff, order=c(0,1,1),method="ML")
+summary(rice.model1) #AIC=2740.94
+lmtest::coeftest(rice.model1) #seluruh parameter signifikan
+```
+
+## ARIMA(0,1,2)
+
+```{r}
+rice.model2 = Arima(rice.train.diff, order=c(0,1,2),method="ML")
+summary(rice.model2) #AIC=2688.53
+lmtest::coeftest(rice.model2) #seluruh parameter signifikan
+```
+
+## ARIMA(1,1,2)
+
+```{r}
+rice.model3 = Arima(rice.train.diff, order=c(1,1,2),method="ML")
+summary(rice.model3) #AIC=2690.53
+lmtest::coeftest(rice.model3) #tidak seluruh parameter signifikan
+```
+
+## ARIMA(2,1,0)
+
+```{r}
+rice.model4 = Arima(rice.train.diff, order=c(2,1,0),method="ML")
+summary(rice.model4) #AIC=2765.17
+lmtest::coeftest(rice.model4) #seluruh parameter signifikan
+```
+
+Berdasarkan beberapa model tentatif diatas, model terbaik dengan AIC terkecil dan seluruh parameter signifikan adalah ARIMA(0,1,2)
+
+## Overfitting
+
+Tahapan selanjutnya adalah overfitting dengan menaikkan ordo AR(p) atau MA(q). Jika model terbaik yang diperoleh adalah ARIMA(0,1,2) maka dilakukan pemodelan untuk ARIMA(0,1,3) dan ARIMA(1,1,2)
+
+### ARIMA(1,1,2)
+
+```{r}
+rice.model3 = Arima(rice.train.diff, order=c(1,1,2),method="ML")
+summary(rice.model3) #AIC=2690.53
+lmtest::coeftest(rice.model3) #tidak seluruh parameter signifikan
+```
+
+### ARIMA(0,1,3)
+
+```{r}
+rice.model2a = Arima(rice.train.diff, order=c(0,1,3),method="ML")
+summary(rice.model2a) #AIC=2690.53
+lmtest::coeftest(rice.model2a) #tidak seluruh parameter signifikan
+```
+
+Berdasarkan model *overfitting*, ARIMA(1,1,2) dan ARIMA(0,1,3) mempunyai AIC yang lebih besar serta tidak seluruh parameter signifikan. Oleh karena itu, model awal ARIMA(2,1,0) yang digunakan untuk tahap selanjutnya.
+
+# Peramalan
+
+Peramalan untuk 72 periode kedepan.
+
+```{r}
+rice.ramalan <- forecast::forecast(rice.model2, h = 72) 
+rice.ramalan
+rice.data.ramalan <- rice.ramalan$mean
+plot(rice.ramalan)
+```
+
+Ramalan ARIMA(0,1,2) cukup stabil hingga akhir periode.
+
+## Plot Peramalan
+
+```{r}
+rice.pt <- rice.train[288] #nilai akhir data latih
+rice.hasil.diff <- rice.data.ramalan
+rice.hasil <- diffinv(rice.hasil.diff, differences = 1) + rice.pt
+ts.plot(rice.train, rice.hasil)
+```
+
+## Perbandingan Akurasi
+
+```{r}
+rice.perbandingan <- matrix(data=c(head(rice.test, n=72), rice.hasil[-1]),
+                     nrow = 72, ncol = 2)
+colnames(rice.perbandingan) <- c("Aktual","Hasil Forecast")
+rice.perbandingan
+accuracy(ts(rice.hasil[-1]), head(rice.test, n=72))
+```
+
+Berdasarkan hasil diatas, MAPE yang diperoleh sebesar $10.68903$.

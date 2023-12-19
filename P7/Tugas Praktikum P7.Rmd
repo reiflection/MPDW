@@ -29,6 +29,7 @@ summary(cars)
 
 ```{r}
 data_mpdw <- rio::import("https://raw.githubusercontent.com/reiflection/MPDW/main/Data/Cerial%20Prices.csv")
+View(data_mpdw)
 rice <- ts(data_mpdw$Price_rice_ton)
 rice.train <- ts(rice[1:288])
 rice.test <- ts(rice[289:360])

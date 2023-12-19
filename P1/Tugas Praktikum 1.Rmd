@@ -9,6 +9,7 @@ output:
 ---
 
 Library
+
 ```{r}
 library("forecast")
 library("graphics")
@@ -17,7 +18,6 @@ library("TSA")
 library(rio)
 
 ```
-
 
 ```{r}
 data_mpdw <- import("https://raw.githubusercontent.com/reiflection/MPDW/main/Data/Cerial%20Prices.csv")
@@ -37,6 +37,7 @@ ts.plot(rice.all.ts, xlab="Time Period ", ylab="Harga Beras",
         main = "Time Series Plot All Time")
 points(rice.all.ts)
 ```
+
 Pada eksplorasi data untuk seluruh 40 tahun, terdapat satu puncak yang sangat tinggi pada tahun 2008. Sebelum dan sesudah puncak tersebut berada pada range harga yang cukup berbeda, sehingga data yang diambil hanya 10 tahun terakhir yaitu Januari 2012 - Januari 2022.
 
 ```{r}
@@ -44,14 +45,17 @@ rice.ts <- ts(data_mpdw$Price_rice_ton[240:360])
 ```
 
 Plot Deret Waktu
+
 ```{r}
 ts.plot(rice.ts, xlab="Time Period ", ylab="Reading", 
         main = "Time Series Plot")
 points(rice.ts)
 ```
+
 Grafik deret waktu menunjukkan pola yang tidak konstan atau tren.
 
 Pembagian data latih dan uji sebanyak 80% dan 20%
+
 ```{r}
 rma_train <- data_mpdw[240:336,]
 rma_test <- data_mpdw[336:360,]
@@ -60,6 +64,7 @@ rma_test.ts <- ts(rma_test$Price_rice_ton)
 ```
 
 Eksplorasi data latih dan uji
+
 ```{r}
 #eksplorasi keseluruhan data
 plot(rice.ts, col="yellow",main="Plot semua data")
@@ -75,6 +80,7 @@ points(rma_test.ts)
 ```
 
 Eksplorasi Data Gabungan
+
 ```{r}
 library(ggplot2)
 ggplot() + 
@@ -88,6 +94,7 @@ ggplot() +
 ```
 
 ## Double Moving Average
+
 ```{r}
 rice.sma.dma<-SMA(rma_train.ts, n=11)
 rdma <- SMA(rice.sma.dma, n = 11)
@@ -103,11 +110,12 @@ for (i in t) {
   f[i] = At[length(At)] + Bt[length(Bt)]*(i)
 }
 
-data.gab2 <- cbind(aktual = c(rma_train.ts,rep(NA,25)), pemulusan1 = c(rice.sma,rep(NA,25)),pemulusan2 = c(rice.dma, rep(NA,25)),At = c(At, rep(NA,25)), Bt = c(Bt,rep(NA,25)),ramalan = c(rice.ramal.dma, f[-1]))
+data.gab2 <- cbind(aktual = c(rma_train.ts, rep(NA,25)), pemulusan1 = c(rice.sma.dma, rep(NA,25)), pemulusan2 = c(rice.dma, rep(NA,25)),At = c(At, rep(NA,25)), Bt = c(Bt,rep(NA,25)),ramalan = c(rice.ramal.dma, f[-1]))
 data.gab2
 ```
 
 Visualisasi hasil pemulusan DMA untuk 80% data
+
 ```{r}
 ts.plot(rice.ts, xlab="Periode", ylab="Harga Beras", main= "DMA N=11 Harga Beras")
 points(rice.ts)
@@ -128,6 +136,7 @@ row.names(akurasi_train.dma)<- c("SSE", "MSE", "MAPE")
 colnames(akurasi_train.dma) <- c("Akurasi m = 11")
 akurasi_train.dma
 ```
+
 nilai MAPE untuk pengujian data latih dibawah 10% yang menandakan sudah cukup baik.
 
 ```{r}
@@ -145,9 +154,10 @@ akurasi_test.dma
 
 Perhitungan akurasi menggunakan data latih menghasilkan nilai MAPE yang lebih dari 10%..
 
-
 ## Double Exponetial Smoothing
+
 Membagi data untuk DES
+
 ```{r}
 res_train<-data_mpdw[240:336,]
 res_test<-data_mpdw[336:360,]
@@ -174,6 +184,7 @@ ramalandes2
 ```
 
 Pembandingan data latih dan uji melalui visualisasi
+
 ```{r}
 plot(rice.ts)
 lines(des.1$fitted[,1], lty=2, col="blue")
@@ -219,6 +230,7 @@ row.names(akurasides.2)<- c("SSE", "MSE", "MAPE")
 colnames(akurasides.2) <- c("Akurasi lamda=0.6 dan gamma=0.3")
 akurasides.2
 ```
+
 Nilai MAPE dengan lamda = 0.6 dan gamma = 0.3 lebih kecil dibandingkan nilai MAPE pada lamda = 0.2 dan gamma = 0.2 sehingga akurasi tersebut lebih baik.
 
 ```{r}
@@ -252,4 +264,5 @@ row.names(akurasitestingdes)<- c("SSE", "MSE", "MAPE")
 colnames(akurasitestingdes) <- c("des ske1","des ske2","des opt")
 akurasitestingdes
 ```
+
 Metode DES dengan parameter optimum menghasilkan nilai MAPE yang paling kecil sehingga akurasi tersebut lebih baik dibandingkan yang lainnya.

@@ -47,7 +47,7 @@ t = 1:5
 f = c()
 
 for (i in t) {
-  f[i] = At[length(At)] + Bt[length(Bt)]*(i)
+  f[i] = at_aqi[length(at_aqi)] + bt_aqi[length(bt_aqi)]*(i)
 }
 ```
 

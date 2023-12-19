@@ -1,0 +1,449 @@
+---
+title: "Latihan MPDW Pertemuan 4"
+author: "Kaylila Kireinahana"
+date: "2023-09-21"
+output: html_document
+---
+
+# White Noise
+
+```{r setup, include=FALSE}
+p4 <- rnorm(300)
+ts.plot(p4)
+```
+
+```{r}
+par(mfrow = c(1, 2)) 
+acf(p4)
+acf(p4, xlim = c(1, 20))
+```
+
+# MA(2)
+
+## Pembangkitan Proses MA(2)
+
+```{r}
+set.seed(1070)
+p4.ma <- p4[1]
+p4.ma[2] <- p4[2]
+```
+
+Rumus MA(2): $$y_t=e_t+0.4e_{t-1}+0.6e_{t-2}$$
+
+```{r}
+for(i in 3:300){
+   p4.ma[i] <- p4[i] + 0.4 * p4[i - 1] + 0.6 * p4[i - 2]
+}
+p4.ma
+```
+
+Atau menggunakan arima.sim:
+
+```{r}
+p4.ma1 <- arima.sim(list(order=c(0,0,2), ma=c(0.4,0.6)), n=300)
+p4.ma1
+```
+
+## Karakteristik MA(2)
+
+### Plot Time Series
+
+```{r}
+ts.plot(p4.ma)
+```
+
+Berdasarkan plot time series, terlihat bahwa data MA(2) yang dibangkitkan stasioner dalam rataan
+
+### Plot ACF
+
+```{r}
+acf(p4.ma,lag.max = 20)
+```
+
+Berdasarkan plot AFC tersebut, terlihat bahwa plot ACF *cuts off* di lag kedua.
+
+### Plot PACF
+
+```{r}
+pacf(p4.ma)
+```
+
+Berdasarkan plot PACF tersebut, terlihat bahwa plot PACF cenderung *tails off* dan membentuk gelombang sinus
+
+### Plot EACF
+
+```{r}
+TSA::eacf(p4.ma)
+```
+
+### Scatterplot Antar Peubah
+
+#### $Y_t$ dengan $Y_{t-1}$
+
+```{r}
+#Yt
+p4.yt_ma <- p4.ma[-1]
+p4.yt_ma
+#Yt-1
+p4.yt_1_ma <- p4.ma[-300]
+p4.yt_1_ma
+```
+
+```{r}
+plot(y=p4.yt_ma,x=p4.yt_1_ma)
+```
+
+Berdasarkan scatterplot tersebut, terlihat bahwa terdapat hubungan positif antara $Y_t$ dengan $Y_{t-1}$. Hal ini sesuai dengan teori yang ada
+
+```{r}
+cor(p4.yt_ma,p4.yt_1_ma)
+```
+
+#### $Y_t$ dengan $Y_{t-2}$
+
+```{r}
+#Yt
+p4.yt_ma2 <- p4.ma[-c(1,2)]
+p4.yt_ma2
+#Yt-2
+p4.yt_2_ma <- p4.ma[-c(299,300)]
+p4.yt_2_ma
+```
+
+```{r}
+plot(y=p4.yt_ma2,x=p4.yt_2_ma)
+```
+
+Berdasarkan scatterplot tersebut, terlihat bahwa terdapat hubungan positif antara $Y_t$ dengan $Y_{t-2}$. Hal ini sesuai dengan teori yang ada
+
+```{r}
+cor(p4.yt_ma2,p4.yt_2_ma)
+```
+
+#### $Y_t$ dengan $Y_{t-3}$
+
+```{r}
+p4.yt_ma3 <- p4.ma[-c(1,2,3)]
+p4.yt_ma3
+#Yt-2
+p4.yt_3_ma <- p4.ma[-c(298,299,300)]
+p4.yt_3_ma
+```
+
+```{r}
+plot(y=p4.yt_ma3,x=p4.yt_3_ma)
+```
+
+Berdasarkan scatterplot tersebut, terlihat bahwa cenderung tidak terdapat hubungan antara $Y_t$ dengan $Y_{t-3}$.
+
+```{r}
+cor(p4.yt_ma3,p4.yt_3_ma)
+```
+
+Korelasi antara $Y_t$ dengan $Y_{t-3}$ hasil simulasi mendekati teori yang ada yaitu 0.
+
+# AR(2)
+
+## Pembangkitan Data Manual
+
+Akan dicoba membangkitkan proses AR, yaitu AR(2) dengan $\phi_{1} = 0.5$ dan $\phi_2=0.2$ sebanyak 300 observasi dan $c=0$.
+
+```{r}
+set.seed(1070)
+```
+
+Bentuk loop dapat dilihat dari rumus AR(2) yang hendak dibangkitkan:
+
+$Y_t=e_t+0.5Y_{t-1}+0.2Y_{t-2}$
+
+```{r}
+p4.n<-length(p4)
+p4.n
+p4.ar <- c(1:p4.n) 
+for (i in 3:p4.n) {p4.ar[i]<-p4[i]+0.5*p4[i-1]+0.2*p4[i-2]}
+p4.ar
+```
+
+## Pembangkitan Data melalui arima.sim
+
+```{r}
+p4.ar1 <- arima.sim(list(order=c(2,0,0), ar=c(0.5,0.2)), n=300)
+p4.ar1
+```
+
+## Karakteristik AR(2)
+
+### Plot Time Series
+
+```{r}
+ts.plot(p4.ar)
+```
+
+Berdasarkan plot time series tersebut terlihat bahwa data cenderung stasioner pada rataan.
+
+### Plot ACF
+
+```{r}
+acf(p4.ar)
+```
+
+Berdasarkan plot ACF tersebut terlihat bahwa plot ACF cenderung *tails off* dan cenderung membentuk pola grafik sinus
+
+### Plot PACF
+
+```{r}
+pacf(p4.ar)
+```
+
+Berdasarkan plot PACF tersebut, terlihat bahwa plot PACF *cuts off* pada lag pertama.
+
+### Plot EACF
+
+```{r}
+TSA::eacf(p4.ar)
+```
+
+### Scatterplot Antar Peubah
+
+#### $Y_t$ dengan $Y_{t-1}$
+
+```{r}
+#Yt
+p4.yt_ar <- p4.ar[-1]
+p4.yt_ar
+#Yt-1
+p4.yt_1_ar <- p4.ar[-300]
+p4.yt_1_ar
+```
+
+```{r}
+plot(y=p4.yt_ar,x=p4.yt_1_ar)
+```
+
+Berdasarkan scatterplot tersebut, terlihat bahwa terdapat hubungan positif antara $Y_t$ dengan $Y_{t-1}$. Hal ini sesuai dengan teori yang ada
+
+```{r}
+cor(p4.yt_ar,p4.yt_1_ar)
+```
+
+Korelasi antara $Y_t$ dengan $Y_{t-1}$ dari hasil simulasi mendekati perhitungan teoritis yaitu $\rho_1=\phi^1=0.5$
+
+#### $Y_t$ dengan $Y_{t-2}$
+
+```{r}
+#Yt
+p4.yt_ar2 <- p4.ar[-c(1,2)]
+p4.yt_ar2
+#Yt-2
+p4.yt_2_ar <- p4.ar[-c(299,300)]
+p4.yt_2_ar
+```
+
+```{r}
+plot(y=p4.yt_ar2,x=p4.yt_2_ar)
+```
+
+Berdasarkan scatterplot tersebut, terlihat bahwa cenderung tidak terdapat hubungan antara $Y_t$ dengan $Y_{t-2}$.
+
+```{r}
+cor(p4.yt_ar2,p4.yt_2_ar)
+```
+
+Korelasi antara $Y_t$ dengan $Y_{t-2}$ hasil simulasi mendekati 0.
+
+#### $Y_t$ dengan $Y_{t-3}$
+
+```{r}
+p4.yt_ar3 <- p4.ar[-c(1,2,3)]
+p4.yt_ar3
+#Yt-2
+p4.yt_3_ar <- p4.ar[-c(298,299,300)]
+p4.yt_3_ar
+```
+
+```{r}
+plot(y=p4.yt_ar3,x=p4.yt_3_ar)
+```
+
+Berdasarkan scatterplot tersebut, terlihat bahwa cenderung tidak terdapat hubungan antara $Y_t$ dengan $Y_{t-3}$.
+
+```{r}
+cor(p4.yt_ar3,p4.yt_3_ar)
+```
+
+Korelasi antara $Y_t$ dengan $Y_{t-3}$ hasil simulasi mendekati 0.
+
+# ARMA(2,2)
+
+## Fungsi Pembangkit ARMA
+
+```{r}
+set.seed(1070)
+p4.coefs <- c(0.5, 0.2)
+p4.e <- c(0.4, 0.6)
+
+p4.coefs %*% p4.e
+```
+
+```{r}
+arma.sim <- function(n, macoef, arcoef){
+  manum <- length(macoef)
+  arnum <- length(arcoef)
+  stopifnot(manum < n & arnum < n)
+  
+  wn <- rnorm(n, sd = 0.5)
+  init <- max(manum, arnum)
+
+  arma <- wn[1:init]
+  for(i in {init+1}:n){
+   mastart <- i - manum
+   maend <- i-1
+   arstart <- i - arnum
+   arend <- i-1
+   arma[i] <- sum(arcoef * arma[arstart:arend]) + sum(macoef * wn[mastart:maend])  + wn[i]
+   }
+  return(arma)
+}
+```
+
+```{r}
+# beberapa contoh pembangkitan melalui fungsi
+
+p4.ma3 <- arma.sim(300, c(0.4, 0.6), 0)
+p4.ar2 <- arma.sim(300, 0, c(0.5, 0.2))
+
+par(mfrow = c(2, 2))
+acf(p4.ma3)
+pacf(p4.ma3)
+acf(p4.ar2)
+pacf(p4.ar2)
+```
+
+```{r}
+#contoh untuk ARMA
+p4.arma22 <- arma.sim(300, c(0.5, 0.2), c(0.4,0.6))
+
+p4.arma22 |> arima(c(2,0,2))
+```
+
+```{r}
+set.seed(1070)
+p4.n2 = length(p4)
+p4.phi1 = 0.5
+p4.phi2 = 0.2
+p4.theta1 = 0.4
+p4.theta2 = 0.6
+
+p4.y.arma=c(1:p4.n2)
+for (i in 3:p4.n2){p4.y.arma[i] = p4.phi1*p4.y.arma[i-1] + p4.phi2*p4.y.arma[i-2]+ p4.theta1*p4[i-1] + p4.theta2*p4[i-2] + p4[i]}
+```
+
+```{r}
+p4.arma11 <- arima.sim(list(order=c(2,0,2), ar = c(0.5,0.2), ma = c(0.4,0.6)), n=300)
+p4.arma11
+```
+
+## Karakteristik ARMA(2,2)
+
+### Plot Time Series
+
+```{r}
+par(mfrow = c(1, 2))
+ts.plot(p4.y.arma)
+ts.plot(p4.arma11)
+par(mfrow = c(1, 1))
+```
+
+Berdasarkan plot time series tersebut, terlihat bahwa model ARMA(2,2) cenderung stasioner dalam rataan namun plot p4.y.arma mengalami kenaikan yang mendadak.
+
+### Plot ACF
+
+```{r}
+par(mfrow = c(1, 2))
+acf(p4.y.arma)
+acf(p4.arma11)
+par(mfrow = c(1, 1))
+```
+
+Berdasarkan plot ACF tersebut, terlihat bahwa model ARMA(2,2) hasil simulasi memiliki plot ACF yang *tails off*.
+
+### Plot PACF
+
+```{r}
+par(mfrow = c(1, 2))
+pacf(p4.y.arma)
+pacf(p4.arma11)
+par(mfrow = c(1, 1))
+```
+
+Berdasarkan plot PACF tersebut, terlihat bahwa model ARMA(2,2) hasil simulasi memiliki plot PACF yang *cuts off*,
+
+### Plot EACF
+
+```{r}
+TSA::eacf(p4.y.arma)
+TSA::eacf(p4.arma11)
+```
+
+### Scatterplot Antar Peubah
+
+#### $Y_t$ dengan $Y_{t-1}$
+
+```{r}
+#Yt
+p4.yt_arma <- p4.arma11[-1]
+p4.yt_arma
+#Yt-1
+p4.yt_1_arma <- p4.arma11[-300]
+p4.yt_1_arma
+```
+
+```{r}
+plot(y=p4.yt_arma,x=p4.yt_1_arma)
+```
+
+Berdasarkan scatterplot tersebut, terlihat bahwa terdapat hubungan positif antara $Y_t$ dengan $Y_{t-1}$.
+
+```{r}
+cor(p4.yt_arma,p4.yt_1_arma)
+```
+
+#### $Y_t$ dengan $Y_{t-2}$
+
+```{r}
+p4.yt_arma2 <- p4.arma11[-c(1,2)]
+p4.yt_arma2
+#Yt-2
+p4.yt_2_arma <- p4.arma11[-c(299,300)]
+p4.yt_2_arma
+```
+
+```{r}
+plot(y=p4.yt_arma2,x=p4.yt_2_arma)
+```
+
+Berdasarkan scatterplot tersebut, terlihat bahwa terdapat hubungan positif antara $Y_t$ dengan $Y_{t-2}$.
+
+```{r}
+cor(p4.yt_arma2,p4.yt_2_arma)
+```
+
+#### $Y_t$ dengan $Y_{t-3}$
+
+```{r}
+p4.yt_arma3 <- p4.arma11[-c(1,2,3)]
+p4.yt_arma3
+#Yt-2
+p4.yt_3_arma <- p4.arma11[-c(298,299,300)]
+p4.yt_3_arma
+```
+
+```{r}
+plot(y=p4.yt_arma3,x=p4.yt_3_arma)
+```
+
+Berdasarkan scatterplot tersebut, terlihat bahwa terdapat hubungan positif antara $Y_t$ dengan $Y_{t-3}$.
+
+```{r}
+cor(p4.yt_arma3,p4.yt_3_arma)
+```
